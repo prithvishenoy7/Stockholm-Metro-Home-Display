@@ -23,12 +23,69 @@ from datetime import datetime, timedelta
 from functools import wraps
 import time
 import pytz  # For timezone handling
+import logging
+from logging.handlers import RotatingFileHandler
 
 app = Flask(__name__)
 
 # SECURITY: Enable CORS - allows ESP32 to call this API from a different domain
 # In production, you'd restrict this to specific origins
 CORS(app)
+
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+# CONCEPT: Python's logging module provides structured logging
+# Supports multiple outputs (console, file), log levels, rotation, etc.
+
+# Create logs directory if it doesn't exist
+LOG_DIR = os.environ.get('LOG_DIR', '/app/logs')
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Configure logging format
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+# Get log level from environment (default: INFO)
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+
+# Create logger
+logger = logging.getLogger('train-api')
+logger.setLevel(getattr(logging, LOG_LEVEL))
+
+# Remove any existing handlers
+logger.handlers = []
+
+# Handler 1: Console output (stdout)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(getattr(logging, LOG_LEVEL))
+console_formatter = logging.Formatter(LOG_FORMAT, LOG_DATE_FORMAT)
+console_handler.setFormatter(console_formatter)
+logger.addHandler(console_handler)
+
+# Handler 2: Rotating file handler
+# CONCEPT: RotatingFileHandler automatically creates new log files when size limit reached
+# maxBytes: Maximum size per file (10MB)
+# backupCount: Number of backup files to keep (keeps last 5 files)
+file_handler = RotatingFileHandler(
+    filename=os.path.join(LOG_DIR, 'train-api.log'),
+    maxBytes=10 * 1024 * 1024,  # 10 MB
+    backupCount=5
+)
+file_handler.setLevel(getattr(logging, LOG_LEVEL))
+file_formatter = logging.Formatter(LOG_FORMAT, LOG_DATE_FORMAT)
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
+
+# Also configure Flask's logger
+app.logger.handlers = logger.handlers
+app.logger.setLevel(logger.level)
+
+logger.info("="*60)
+logger.info("Train Departure API Starting")
+logger.info(f"Log level: {LOG_LEVEL}")
+logger.info(f"Log directory: {LOG_DIR}")
+logger.info("="*60)
 
 # CONFIGURATION: Load from environment variables (Docker will provide these)
 TRAFIKLAB_API_KEY = os.environ.get('TRAFIKLAB_API_KEY', '')
@@ -119,7 +176,7 @@ def is_cache_valid():
     if not is_valid:
         now = datetime.now(STOCKHOLM_TZ)
         period = "night" if NIGHT_START_HOUR <= now.hour < NIGHT_END_HOUR else "day"
-        print(f"[CACHE EXPIRED] Age: {age:.1f}s, TTL: {current_ttl}s (period: {period})")
+        logger.info(f"[CACHE EXPIRED] Age: {age:.1f}s, TTL: {current_ttl}s (period: {period})")
     
     return is_valid
 
@@ -141,10 +198,10 @@ def fetch_train_data(site_id, time_window=60):
         current_ttl = get_current_ttl()
         now = datetime.now(STOCKHOLM_TZ)
         period = "night" if NIGHT_START_HOUR <= now.hour < NIGHT_END_HOUR else "day"
-        print(f"[CACHE HIT] Returning cached data (age: {age:.1f}s / {current_ttl}s, period: {period})")
+        logger.debug(f"[CACHE HIT] Returning cached data (age: {age:.1f}s / {current_ttl}s, period: {period})")
         return cache['data']
     
-    print(f"[CACHE MISS] Fetching fresh data from Trafiklab API")
+    logger.info(f"[CACHE MISS] Fetching fresh data from Trafiklab API")
     
     # NETWORKING: Build request URL - matches Trafiklab specs exactly
     url = f"{TRAFIKLAB_API_URL}/{site_id}"
@@ -156,19 +213,19 @@ def fetch_train_data(site_id, time_window=60):
     
     try:
         # NETWORKING: HTTP GET request with timeout (prevents hanging)
-        print(f"[DEBUG] Requesting: {url}")
-        print(f"[DEBUG] API Key present: {'Yes' if TRAFIKLAB_API_KEY else 'No'}")
-        print(f"[DEBUG] API Key first 10 chars: {TRAFIKLAB_API_KEY[:10] if TRAFIKLAB_API_KEY else 'NONE'}...")
+        logger.debug(f"Requesting: {url} with site_id={site_id}")
+        logger.debug(f"API Key present: {'Yes' if TRAFIKLAB_API_KEY else 'No'}")
+        logger.debug(f"API Key first 10 chars: {TRAFIKLAB_API_KEY[:10] if TRAFIKLAB_API_KEY else 'NONE'}...")
         
         response = requests.get(url, params=params, timeout=10)
         
-        print(f"[DEBUG] Status Code: {response.status_code}")
-        print(f"[DEBUG] Full URL: {response.url}")
+        logger.debug(f"Status Code: {response.status_code}")
+        logger.debug(f"Full URL: {response.url}")
         
         # NETWORKING: Check HTTP status code
         if response.status_code == 200:
             data = response.json()
-            print(f"[SUCCESS] Received {len(data.get('departures', []))} departures")
+            logger.info(f"[SUCCESS] Received {len(data.get('departures', []))} departures")
             
             # Update cache
             cache['data'] = data
@@ -176,29 +233,29 @@ def fetch_train_data(site_id, time_window=60):
             
             return data
         elif response.status_code == 401:
-            print(f"[ERROR] Unauthorized - Check your API key")
-            print(f"[ERROR] Response: {response.text}")
+            logger.error(f"Unauthorized - Check your API key")
+            logger.error(f"Response: {response.text}")
             return None
         elif response.status_code == 400:
-            print(f"[ERROR] Bad Request - Invalid parameters")
-            print(f"[ERROR] Response: {response.text}")
+            logger.error(f"Bad Request - Invalid parameters")
+            logger.error(f"Response: {response.text}")
             return None
         elif response.status_code == 404:
-            print(f"[ERROR] Site ID {site_id} not found")
-            print(f"[ERROR] Response: {response.text}")
+            logger.error(f"Site ID {site_id} not found")
+            logger.error(f"Response: {response.text}")
             return None
         else:
-            print(f"[ERROR] Trafiklab API returned status {response.status_code}")
-            print(f"[ERROR] Response: {response.text[:200]}")
+            logger.error(f"Trafiklab API returned status {response.status_code}")
+            logger.error(f"Response: {response.text[:200]}")
             return None
             
     except requests.exceptions.Timeout:
-        print("[ERROR] Request to Trafiklab timed out")
+        logger.error("Request to Trafiklab timed out")
         return None
     except Exception as e:
-        print(f"[ERROR] Failed to fetch data: {str(e)}")
+        logger.error(f"Failed to fetch data: {str(e)}")
         import traceback
-        traceback.print_exc()
+        logger.debug(traceback.format_exc())
         return None
 
 
@@ -228,7 +285,7 @@ def format_for_esp32(raw_data):
     }
     """
     if not raw_data or 'departures' not in raw_data:
-        print("[ERROR] No departures found in API response")
+        logger.warning("No departures found in API response")
         return []
     
     departures = []
@@ -265,7 +322,7 @@ def format_for_esp32(raw_data):
                 time_diff = (departure_dt - now).total_seconds()
                 minutes_until = int(time_diff / 60)
                 
-                print(f"[DEBUG] Departure: {departure_dt}, Now: {now}, Diff: {minutes_until} min")
+                logger.debug(f"Departure: {departure_dt}, Now: {now}, Diff: {minutes_until} min")
                 
                 if minutes_until <= 0:
                     display_time = 'Nu'
@@ -275,7 +332,7 @@ def format_for_esp32(raw_data):
                     # Show time instead of minutes for far future (>60 min)
                     display_time = departure_dt.strftime('%H:%M')
             except Exception as e:
-                print(f"[ERROR] Failed to parse time '{departure_time}': {e}")
+                logger.error(f"Failed to parse time '{departure_time}': {e}")
                 display_time = '?'
         
         departures.append({
@@ -563,10 +620,13 @@ def cache_status():
 if __name__ == '__main__':
     # SECURITY: Check if API key is configured
     if not TRAFIKLAB_API_KEY:
-        print("WARNING: TRAFIKLAB_API_KEY not set!")
-        print("Set it via environment variable: export TRAFIKLAB_API_KEY=your_key")
+        logger.warning("="*60)
+        logger.warning("TRAFIKLAB_API_KEY not set!")
+        logger.warning("Set it via environment variable: export TRAFIKLAB_API_KEY=your_key")
+        logger.warning("="*60)
     
     # DOCKER CONCEPT: Listen on 0.0.0.0 to accept connections from outside container
     # Port 5000 is standard for Flask
     # debug=True provides helpful error messages (disable in production!)
+    logger.info("Starting Flask application on 0.0.0.0:5000")
     app.run(host='0.0.0.0', port=5000, debug=True)
