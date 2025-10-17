@@ -1,0 +1,132 @@
+# ============================================================================
+# Docker Compose Configuration
+# ============================================================================
+# DOCKER COMPOSE CONCEPT: Orchestrates multiple containers as a single application
+# WHY? In real apps, you have multiple services (API, database, cache, etc.)
+# docker-compose makes it easy to run them all together with one command
+
+# ============================================================================
+# SERVICES: Each service is a container
+# ============================================================================
+services:
+  
+  # API Service - Our Flask application
+  api:
+    # BUILD CONTEXT: Build image from local Dockerfile
+    # CONCEPT: Instead of pulling from Docker Hub, we build locally
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    
+    # CONTAINER NAME: Give container a friendly name
+    container_name: train-api
+    
+    # NETWORKING - PORT MAPPING: Map host port to container port
+    # CONCEPT: <host_port>:<container_port>
+    # This makes container's port 5000 accessible on your computer's port 5001
+    # Access via: http://localhost:5001
+    ports:
+      - "5001:5000"
+    
+    # Option A: Load from root .env file
+    env_file:
+      - .env
+    
+    # Or Option B: Set explicitly (reads from .env in same directory)
+    environment:
+      - TRAFIKLAB_API_KEY=${TRAFIKLAB_API_KEY}
+      - DEFAULT_SITE_ID=${DEFAULT_SITE_ID:-740000701}
+      - FLASK_ENV=${FLASK_ENV:-production}
+    
+    # DOCKER VOLUMES: Mount local directory into container
+    # CONCEPT: Enables hot-reload - edit code locally, see changes in container
+    # ./backend:/app means: map local "./backend" to container's "/app"
+    # USEFUL FOR DEVELOPMENT: Changes reflect immediately without rebuilding
+    volumes:
+      - ./backend:/app
+    
+    # RESTART POLICY: What to do if container crashes?
+    # "unless-stopped" = always restart unless you manually stop it
+    # OTHER OPTIONS: "no", "always", "on-failure"
+    restart: unless-stopped
+    
+    # NETWORKING: Connect to custom network
+    # Containers on same network can talk to each other by service name
+    networks:
+      - train-network
+    
+    # HEALTH CHECK: Override Dockerfile's health check if needed
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ============================================================================
+  # FUTURE: Redis Cache Service (commented out for now)
+  # ============================================================================
+  # CONCEPT: As your app grows, you can add more services
+  # Example: Redis for distributed caching
+  
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: train-cache
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - train-network
+  #   restart: unless-stopped
+
+  # ============================================================================
+  # FUTURE: Nginx Reverse Proxy (for production)
+  # ============================================================================
+  # CONCEPT: In production, Nginx sits in front, handles SSL/TLS
+  
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: train-proxy
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+  #     - ./nginx/ssl:/etc/nginx/ssl
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - train-network
+
+# ============================================================================
+# NETWORKS: Custom network for service-to-service communication
+# ============================================================================
+# NETWORKING CONCEPT: Containers on same network can find each other by name
+# Example: Redis container can be reached at "redis:6379" from API container
+networks:
+  train-network:
+    driver: bridge
+    # BRIDGE DRIVER: Default Docker network mode
+    # Containers get their own network namespace but can talk to each other
+
+# ============================================================================
+# VOLUMES: Named volumes for persistent data
+# ============================================================================
+# DOCKER VOLUMES CONCEPT: Data that survives container restarts
+# If you delete container, data in volumes persists
+# volumes:
+#   redis-data:
+#     driver: local
+
+# ============================================================================
+# DOCKER COMPOSE COMMANDS CHEAT SHEET:
+# ============================================================================
+# Build and start:     docker-compose up --build
+# Start in background: docker-compose up -d
+# Stop all:            docker-compose down
+# View logs:           docker-compose logs -f
+# Restart service:     docker-compose restart api
+# Execute command:     docker-compose exec api python
+# Scale service:       docker-compose up --scale api=3
+# ============================================================================

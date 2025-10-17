@@ -1,0 +1,42 @@
+# Python Dependencies for Train Departure API
+# ===========================================
+# CONCEPT: This file lists all Python packages needed
+# pip will install these when building the Docker image
+
+# Flask - Web framework for building APIs
+# Lightweight and perfect for microservices
+flask==3.0.0
+
+# Flask-CORS - Cross-Origin Resource Sharing
+# SECURITY CONCEPT: Allows ESP32 to call API from different origin/domain
+# Without this, browsers would block the requests
+flask-cors==4.0.0
+
+# Requests - HTTP library for calling external APIs
+# Used to fetch data from Trafiklab
+requests==2.31.0
+
+# Werkzeug - WSGI utility library (Flask dependency)
+# Included explicitly for security updates
+werkzeug==3.0.1
+
+# python-dotenv - Load environment variables from .env files
+# Used for local development configuration
+python-dotenv==1.0.0
+
+# pytz - Timezone library for Python
+# TIMEZONE CONCEPT: Handles timezone conversions (UTC to Europe/Stockholm)
+# Essential for showing correct local time in Sweden
+pytz==2024.1
+
+# ============================================
+# SECURITY NOTE: Pin versions to specific numbers
+# WHY? Prevents supply chain attacks and ensures reproducible builds
+# Always use known-good versions, update intentionally
+# ============================================
+
+# PRODUCTION CONSIDERATION:
+# For production, you'd also add:
+# - gunicorn (production WSGI server, Flask's built-in server is dev-only)
+# - redis (for distributed caching across multiple containers)
+# - prometheus-flask-exporter (metrics for monitoring)
