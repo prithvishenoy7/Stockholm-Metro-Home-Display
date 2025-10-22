@@ -14,7 +14,7 @@ flask-cors==4.0.0
 
 # Requests - HTTP library for calling external APIs
 # Used to fetch data from Trafiklab
-requests==2.31.0
+requests==2.32.4
 
 # Werkzeug - WSGI utility library (Flask dependency)
 # Included explicitly for security updates
