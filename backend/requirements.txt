@@ -10,7 +10,7 @@ flask==3.0.0
 # Flask-CORS - Cross-Origin Resource Sharing
 # SECURITY CONCEPT: Allows ESP32 to call API from different origin/domain
 # Without this, browsers would block the requests
-flask-cors==4.0.0
+flask-cors==6.0.0
 
 # Requests - HTTP library for calling external APIs
 # Used to fetch data from Trafiklab
