@@ -44,6 +44,7 @@ services:
     # USEFUL FOR DEVELOPMENT: Changes reflect immediately without rebuilding
     volumes:
       - ./backend:/app
+      - train-logs:/app/logs  # Persistent logs storage
     
     # RESTART POLICY: What to do if container crashes?
     # "unless-stopped" = always restart unless you manually stop it
@@ -115,7 +116,8 @@ networks:
 # ============================================================================
 # DOCKER VOLUMES CONCEPT: Data that survives container restarts
 # If you delete container, data in volumes persists
-# volumes:
+volumes:
+  train-logs:
 #   redis-data:
 #     driver: local
 
