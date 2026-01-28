@@ -18,7 +18,7 @@ requests==2.32.4
 
 # Werkzeug - WSGI utility library (Flask dependency)
 # Included explicitly for security updates
-werkzeug==3.0.1
+werkzeug==3.1.5
 
 # python-dotenv - Load environment variables from .env files
 # Used for local development configuration
