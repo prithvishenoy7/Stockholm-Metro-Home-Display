@@ -215,7 +215,7 @@ def fetch_train_data(site_id, time_window=60):
         # NETWORKING: HTTP GET request with timeout (prevents hanging)
         logger.debug(f"Requesting: {url} with site_id={site_id}")
         logger.debug(f"API Key present: {'Yes' if TRAFIKLAB_API_KEY else 'No'}")
-        logger.debug(f"API Key first 10 chars: {TRAFIKLAB_API_KEY[:10] if TRAFIKLAB_API_KEY else 'NONE'}...")
+        # logger.debug(f"API Key first 10 chars: {TRAFIKLAB_API_KEY[:10] if TRAFIKLAB_API_KEY else 'NONE'}...")
         
         response = requests.get(url, params=params, timeout=10)
         
@@ -629,4 +629,4 @@ if __name__ == '__main__':
     # Port 5000 is standard for Flask
     # debug=True provides helpful error messages (disable in production!)
     logger.info("Starting Flask application on 0.0.0.0:5000")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
