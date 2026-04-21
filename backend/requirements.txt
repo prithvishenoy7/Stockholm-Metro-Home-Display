@@ -22,7 +22,7 @@ werkzeug==3.1.5
 
 # python-dotenv - Load environment variables from .env files
 # Used for local development configuration
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 
 # pytz - Timezone library for Python
 # TIMEZONE CONCEPT: Handles timezone conversions (UTC to Europe/Stockholm)
